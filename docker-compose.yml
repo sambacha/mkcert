@@ -1,0 +1,7 @@
+version: '3'
+
+services:
+  mkcert:
+    image: lukasa/mkcert
+    ports:
+      - '8080:8080'

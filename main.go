@@ -17,14 +17,16 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/Lukasa/mkcert/certs"
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"runtime"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/Lukasa/mkcert/certs"
 )
 
 const CERT_URL = "https://hg.mozilla.org/mozilla-central/raw-file/tip/security/nss/lib/ckfw/builtins/certdata.txt"
@@ -237,15 +239,30 @@ func listAllCerts(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	// Before we do anything, TURN ON THE CPUS.
-	runtime.GOMAXPROCS(runtime.NumCPU())
+	mode := "serve"
+	if len(os.Args) > 1 {
+		mode = os.Args[1]
+	}
 
-	// Start the certificate update loop.
-	go certUpdateLoop()
+	switch mode {
+	case "init":
+		updateCertificates()
+		certs.WriteCerts(os.Stdout, certificates, certs.SubstringBlacklistMatcher(nil))
 
-	// Start the HTTP server.
-	http.HandleFunc("/labels/", listAllCerts)
-	http.HandleFunc("/generate/", whitelist)
-	http.HandleFunc("/generate/all/except/", blacklist)
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	case "serve":
+		// Before we do anything, TURN ON THE CPUS.
+		runtime.GOMAXPROCS(runtime.NumCPU())
+
+		// Start the certificate update loop.
+		go certUpdateLoop()
+
+		// Start the HTTP server.
+		http.HandleFunc("/labels/", listAllCerts)
+		http.HandleFunc("/generate/", whitelist)
+		http.HandleFunc("/generate/all/except/", blacklist)
+		log.Fatal(http.ListenAndServe(":8080", nil))
+
+	default:
+		log.Fatalln("Unknown mode:", mode)
+	}
 }
